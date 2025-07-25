@@ -33,7 +33,7 @@
       "continue": true
     },
     {
-      "src": "/sounds/(.*)",  // Tambahkan ini untuk file suara
+      "src": "/sounds/(.*)", 
       "headers": {
         "cache-control": "public,max-age=31536000,immutable"
       },
@@ -43,7 +43,7 @@
       "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json|map|woff|woff2|ttf|eot|mp3|wav|ogg))$",
       "headers": {
         "cache-control": "public,max-age=31536000,immutable",
-        "Content-Type": "application/javascript" // Coba paksa MIME type untuk JS modules
+        "Content-Type": "application/javascript" 
       },
       "continue": true
     },
