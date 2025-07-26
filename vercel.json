@@ -1,7 +1,9 @@
 {
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api|assets/|_next/|examples/|favicons/|images/|sounds/|[\\w-]+\\.\\w+).*)",
       "destination": "/index.html"
     }
   ]
