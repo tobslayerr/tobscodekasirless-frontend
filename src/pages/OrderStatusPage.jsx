@@ -3,76 +3,26 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import pdfMake from 'pdfmake/build/pdfmake';
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
 
-pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts;
-
+// Konfigurasi Font untuk pdfmake
+if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
+    pdfMake.vfs = pdfFonts.pdfMake.vfs;
+}
 pdfMake.fonts = {
-  Roboto: {
-    normal: 'Roboto-Regular.ttf',
-    bold: 'Roboto-Medium.ttf',
-    italics: 'Roboto-Italic.ttf',
-    bolditalics: 'Roboto-MediumItalic.ttf'
-  },
+    Roboto: {
+        normal: 'Roboto-Regular.ttf',
+        bold: 'Roboto-Medium.ttf',
+        italics: 'Roboto-Italic.ttf',
+        bolditalics: 'Roboto-MediumItalic.ttf'
+    }
 };
+
 
 import {
-  CheckCircleIcon, ClockIcon, DocumentArrowDownIcon, ArrowPathIcon,
-  UserIcon, QrCodeIcon, WalletIcon, BuildingStorefrontIcon, CurrencyDollarIcon, XCircleIcon, CubeIcon
+    CheckCircleIcon, ClockIcon, DocumentArrowDownIcon, ArrowPathIcon,
+    ClipboardDocumentCheckIcon, QrCodeIcon
 } from '@heroicons/react/24/solid';
-
-const StatusTracker = ({ status }) => {
-    const steps = ['waiting', 'processing', 'completed'];
-    const stepLabels = {
-        'waiting': 'Pesanan Diterima',
-        'processing': 'Diproses Dapur',
-        'completed': 'Selesai & Siap Diambil'
-    };
-
-    const currentStepIndex = steps.indexOf(status);
-
-    if (status === 'cancelled') {
-        return (
-            <div className="flex items-center justify-center p-4 bg-red-100 rounded-lg border-2 border-dashed border-red-300">
-                <XCircleIcon className="w-10 h-10 text-red-500 mr-4" />
-                <div>
-                    <h3 className="text-xl font-bold text-red-800">Pesanan Dibatalkan</h3>
-                    <p className="text-red-600">Pesanan ini telah dibatalkan.</p>
-                </div>
-            </div>
-        );
-    }
-    
-    return (
-        <div className="flex items-center justify-between w-full">
-            {steps.map((step, index) => {
-                const isActive = index <= currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-
-                return (
-                    <React.Fragment key={step}>
-                        <div className="flex flex-col items-center text-center">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4
-                                ${isActive ? 'bg-orange-500 border-orange-600' : 'bg-gray-200 border-gray-300'}`}>
-                                {index < currentStepIndex ? 
-                                    <CheckCircleIcon className="w-7 h-7 text-white" /> :
-                                    <CubeIcon className={`w-7 h-7 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                                }
-                            </div>
-                            <p className={`mt-2 text-sm font-bold ${isActive ? 'text-orange-700' : 'text-gray-500'}`}>
-                                {stepLabels[step]}
-                            </p>
-                        </div>
-                        {index < steps.length - 1 && (
-                            <div className={`flex-grow h-1 mx-2 ${isActive ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
-                        )}
-                    </React.Fragment>
-                );
-            })}
-        </div>
-    );
-};
-
 
 function OrderStatusPage() {
     const { orderUuid } = useParams();
@@ -84,190 +34,221 @@ function OrderStatusPage() {
     const API_URL = import.meta.env.VITE_SERVER_URL;
 
     useEffect(() => {
-        const fetchOrderStatus = async () => {
-            setLoading(true);
-            setError('');
-            try {
-                const response = await axios.get(`${API_URL}/api/orders/${orderUuid}`);
-                setOrder(response.data);
-            } catch (err) {
-                console.error('Error fetching order status:', err);
-                setError(err.response?.data?.message || 'Gagal memuat status pesanan.');
-                Swal.fire('Error', 'Gagal memuat status pesanan. Pastikan Order ID benar.', 'error');
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchOrderStatus();
-        const interval = setInterval(fetchOrderStatus, 15000); 
+    }, [orderUuid]);
 
-        return () => clearInterval(interval); 
-    }, [orderUuid, API_URL]);
-
+    const fetchOrderStatus = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const response = await axios.get(`${API_URL}/api/orders/${orderUuid}`);
+            setOrder(response.data);
+        } catch (err) {
+            console.error('Error fetching order status:', err);
+            const errorMessage = err.response?.data?.message || 'Gagal memuat status pesanan. Pastikan Order ID benar.';
+            setError(errorMessage);
+            Swal.fire('Error', errorMessage, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const generateReceiptPdf = () => {
-        if (!order) return;
-        Swal.fire({
-            title: 'Mengunduh Struk...',
-            text: 'Mohon tunggu, PDF sedang dibuat.',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+        if (!order) return Swal.fire('Error', 'Data pesanan tidak ditemukan.', 'error');
 
-        const tableBody = [
-            [{ text: 'Produk', style: 'tableHeader' }, { text: 'Qty', style: 'tableHeader', alignment: 'center' }, { text: 'Subtotal', style: 'tableHeader', alignment: 'right' }]
+        Swal.fire({ title: 'Membuat Struk...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const tableHeader = [
+            { text: 'Item', style: 'tableHeader', alignment: 'left' },
+            { text: 'Qty', style: 'tableHeader', alignment: 'center' },
+            { text: 'Harga', style: 'tableHeader', alignment: 'right' },
+            { text: 'Subtotal', style: 'tableHeader', alignment: 'right' },
         ];
-        order.items.forEach(item => {
-            const addons = item.addons.map(a => `- ${a.addon_value_name}`).join('\n');
-            const productText = [{ text: item.product_name, bold: true }, { text: `\n${addons}`, fontSize: 9, italics: true }];
-            tableBody.push([
-                addons ? productText : item.product_name,
-                { text: item.quantity, alignment: 'center' },
-                { text: `Rp${parseFloat(item.subtotal).toLocaleString('id-ID')}`, alignment: 'right' }
-            ]);
+
+        const tableBody = order.items.map(item => {
+            const addonsText = item.addons.map(a => `  - ${a.addon_value_name}`).join('\n');
+            const itemName = { text: `${item.product_name}\n`, bold: true };
+            const itemAddons = { text: addonsText, style: 'addonsText' };
+            
+            return [
+                { text: [itemName, itemAddons], style: 'itemText' },
+                { text: item.quantity, alignment: 'center', style: 'itemText' },
+                { text: `Rp${parseFloat(item.base_price).toLocaleString('id-ID')}`, alignment: 'right', style: 'itemText' },
+                { text: `Rp${parseFloat(item.subtotal).toLocaleString('id-ID')}`, alignment: 'right', style: 'itemText' }
+            ];
         });
 
         const docDefinition = {
             content: [
-                { text: 'Cafe Kita', style: 'header' },
-                { text: 'Struk Pembelian', style: 'subheader' },
-                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: '#cccccc' }], margin: [0, 0, 0, 10] },
-                {
-                    columns: [
-                        { text: `Order ID: ${order.uuid.substring(0, 13)}...`, fontSize: 9 },
-                        { text: `Tanggal: ${new Date(order.created_at).toLocaleString('id-ID')}`, fontSize: 9, alignment: 'right' }
-                    ]
-                },
-                { text: `Nama: ${order.customer_name}`, fontSize: 9 },
-                { text: `Meja: ${order.table_number}`, fontSize: 9, margin: [0, 0, 0, 10] },
-                {
-                    style: 'itemsTable',
-                    table: { widths: ['*', 'auto', 'auto'], body: tableBody },
-                    layout: 'lightHorizontalLines'
-                },
+                { text: 'Struk Pesanan', style: 'header' },
+                { text: 'Terima Kasih Atas Pesanan Anda', alignment: 'center', style: 'subheader' },
                 { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: '#cccccc' }], margin: [0, 10, 0, 10] },
                 {
                     columns: [
-                        { text: 'Total', style: 'totalLabel' },
-                        { text: `Rp${parseFloat(order.total_amount).toLocaleString('id-ID')}`, style: 'totalValue' }
+                        { text: `Nama: ${order.customer_name}\nMeja: ${order.table_number}`, style: 'infoText' },
+                        { text: `Order ID: ${order.uuid}\nTanggal: ${new Date(order.created_at).toLocaleString('id-ID')}`, style: 'infoText', alignment: 'right' },
                     ]
                 },
-                { text: 'Terima kasih atas kunjungan Anda!', style: 'footer' },
+                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 0.5, lineColor: '#eeeeee' }], margin: [0, 10, 0, 10] },
+                {
+                    table: {
+                        headerRows: 1,
+                        widths: ['*', 'auto', 'auto', 'auto'],
+                        body: [tableHeader, ...tableBody]
+                    },
+                    layout: 'lightHorizontalLines'
+                },
+                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 0.5, lineColor: '#eeeeee' }], margin: [0, 10, 0, 10] },
+                {
+                    columns: [
+                        { text: 'Metode Pembayaran', style: 'summaryTitle' },
+                        { text: order.payment_method.toUpperCase(), style: 'summaryValue', alignment: 'right' }
+                    ]
+                },
+                {
+                    columns: [
+                        { text: 'Total', style: 'totalTitle' },
+                        { text: `Rp${parseFloat(order.total_amount).toLocaleString('id-ID')}`, style: 'totalValue', alignment: 'right' }
+                    ]
+                },
             ],
             styles: {
-                header: { fontSize: 24, bold: true, alignment: 'center', color: '#dd6b20' },
-                subheader: { fontSize: 14, alignment: 'center', margin: [0, 0, 0, 5], color: '#718096' },
-                itemsTable: { margin: [0, 5, 0, 5] },
-                tableHeader: { bold: true, fontSize: 12, color: 'black' },
-                totalLabel: { bold: true, fontSize: 14, alignment: 'right', margin: [0, 5, 0, 5] },
-                totalValue: { bold: true, fontSize: 16, alignment: 'right', margin: [0, 5, 0, 5], color: '#dd6b20' },
-                footer: { italics: true, fontSize: 10, alignment: 'center', margin: [0, 20, 0, 0], color: '#718096' }
+                header: { fontSize: 24, bold: true, alignment: 'center', color: '#1e293b' },
+                subheader: { fontSize: 10, alignment: 'center', color: '#64748b', margin: [0, 0, 0, 10] },
+                infoText: { fontSize: 9, color: '#475569' },
+                tableHeader: { bold: true, fontSize: 10, color: '#334155' },
+                itemText: { fontSize: 10, color: '#334155' },
+                addonsText: { fontSize: 8, color: '#64748b', italics: true },
+                summaryTitle: { fontSize: 10, color: '#475569' },
+                summaryValue: { fontSize: 10, bold: true, color: '#1e293b' },
+                totalTitle: { fontSize: 14, bold: true, color: '#1e293b' },
+                totalValue: { fontSize: 14, bold: true, color: '#4f46e5' },
             },
             defaultStyle: { font: 'Roboto' }
         };
 
-        pdfMake.createPdf(docDefinition).download(`struk_order_${order.uuid.substring(0, 8)}.pdf`, () => {
+        pdfMake.createPdf(docDefinition).download(`Struk_Order_${order.uuid.substring(0, 8)}.pdf`, () => {
             Swal.close();
         });
     };
+    
+    const StatusBadge = ({ status, type }) => {
+        let text, color, Icon;
+        switch (status) {
+            case 'paid': text = 'Lunas'; color = 'green'; Icon = CheckCircleIcon; break;
+            case 'completed': text = 'Selesai'; color = 'green'; Icon = CheckCircleIcon; break;
+            case 'pending': text = 'Menunggu'; color = 'yellow'; Icon = ClockIcon; break;
+            case 'waiting': text = 'Menunggu'; color = 'yellow'; Icon = ClockIcon; break;
+            case 'processing': text = 'Diproses'; color = 'blue'; Icon = ClockIcon; break;
+            case 'failed': text = 'Gagal'; color = 'red'; Icon = ClockIcon; break;
+            case 'cancelled': text = 'Dibatalkan'; color = 'red'; Icon = ClockIcon; break;
+            default: text = 'Tidak Diketahui'; color = 'gray'; Icon = ClockIcon; break;
+        }
+        
+        const colors = {
+            green: 'bg-green-100 text-green-800',
+            yellow: 'bg-yellow-100 text-yellow-800',
+            blue: 'bg-blue-100 text-blue-800',
+            red: 'bg-red-100 text-red-800',
+            gray: 'bg-gray-100 text-gray-800',
+        };
+
+        return (
+            <div className='text-center'>
+                <p className="text-sm font-semibold text-slate-500 mb-2">{type}</p>
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-lg ${colors[color]}`}>
+                    <Icon className="w-6 h-6" />
+                    <span>{text}</span>
+                </div>
+            </div>
+        );
+    };
 
     if (loading) return (
-        <div className="min-h-screen bg-orange-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-600"></div>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
         </div>
     );
 
     if (error) return (
-        <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center p-4">
-            <XCircleIcon className="w-20 h-20 text-red-400 mb-4"/>
-            <h2 className="text-2xl font-bold text-red-800">Gagal Memuat Pesanan</h2>
-            <p className="text-red-600 mt-2">{error}</p>
-            <button onClick={() => navigate('/')} className="mt-6 px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-all">Kembali</button>
+         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+             <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
+                <h2 className="text-2xl font-bold text-red-600 mb-2">Terjadi Kesalahan</h2>
+                <p className="text-slate-600">{error}</p>
+                <button onClick={() => navigate('/')} className="mt-6 px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700">Kembali</button>
+             </div>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-orange-50 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8">
-                
-                <header className="text-center mb-8">
-                    <h1 className="text-4xl font-extrabold text-gray-800">Status Pesanan Anda</h1>
-                    <p className="text-gray-500 mt-2 flex items-center justify-center gap-2">
-                        <QrCodeIcon className="w-5 h-5"/> 
-                        <span className="font-mono">{order.uuid}</span>
-                    </p>
-                </header>
+        <div className="min-h-screen bg-slate-50 p-4 sm:p-6 md:p-8">
+            <main className="max-w-2xl mx-auto">
+                <div className="bg-white rounded-2xl shadow-xl border border-slate-200">
+                    <div className="p-8 text-center border-b-2 border-dashed">
+                        <h1 className="text-3xl font-extrabold text-slate-800">Status Pesanan</h1>
+                        <p className="text-slate-500 mt-1">Terima kasih, {order.customer_name}!</p>
+                    </div>
 
-                <section className="mb-8 p-6 bg-orange-50 rounded-xl">
-                    <StatusTracker status={order.order_status} />
-                </section>
-
-                <section className="grid md:grid-cols-2 gap-6 mb-8">
-                    <div className={`p-5 rounded-xl border-l-8 ${order.payment_status === 'paid' ? 'bg-green-50 border-green-500' : 'bg-yellow-50 border-yellow-500'}`}>
-                        <div className="flex items-center gap-3">
-                            <WalletIcon className={`w-8 h-8 ${order.payment_status === 'paid' ? 'text-green-500' : 'text-yellow-500'}`} />
-                            <div>
-                                <p className="text-sm font-semibold text-gray-600">Status Pembayaran</p>
-                                <p className={`text-xl font-bold ${order.payment_status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>{order.payment_status === 'paid' ? 'Lunas' : 'Belum Lunas'}</p>
-                            </div>
+                    <div className="p-8 grid grid-cols-2 gap-6">
+                        <StatusBadge status={order.payment_status} type="Status Pembayaran"/>
+                        <StatusBadge status={order.order_status} type="Status Pesanan"/>
+                    </div>
+                    
+                    <div className="p-8 bg-slate-50">
+                        <h2 className="text-lg font-bold text-slate-800 mb-4 text-center">Ringkasan Pesanan</h2>
+                        <div className="space-y-3 text-sm text-slate-600">
+                             <div className="flex justify-between"><span className="font-semibold">Order ID:</span> <span className="font-mono">{order.uuid}</span></div>
+                             <div className="flex justify-between"><span className="font-semibold">Meja:</span> <span>{order.table_number}</span></div>
+                             <div className="flex justify-between"><span className="font-semibold">Tanggal:</span> <span>{new Date(order.created_at).toLocaleString('id-ID')}</span></div>
+                             <div className="flex justify-between"><span className="font-semibold">Metode Bayar:</span> <span className="font-bold uppercase">{order.payment_method}</span></div>
                         </div>
                     </div>
-                    <div className="p-5 rounded-xl bg-gray-100 border-l-8 border-gray-400">
-                         <div className="flex items-center gap-3">
-                            <ClockIcon className="w-8 h-8 text-gray-500" />
-                            <div>
-                                <p className="text-sm font-semibold text-gray-600">Waktu Pesanan</p>
-                                <p className="text-xl font-bold text-gray-700">{new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
-                            </div>
+                    
+                    {order.payment_method === 'cash' && order.payment_status !== 'paid' && (
+                        <div className="p-8 border-t border-slate-200 text-center bg-yellow-50">
+                            <QrCodeIcon className="w-10 h-10 text-yellow-600 mx-auto mb-2"/>
+                            <h3 className="font-bold text-yellow-800">Tunjukkan Order ID ke Kasir</h3>
+                            <p className="text-sm text-yellow-700 mt-1">Untuk menyelesaikan pembayaran</p>
                         </div>
-                    </div>
-                </section>
-
-                <section className="p-6 border border-gray-200 rounded-xl mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Ringkasan Pesanan</h2>
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between"><p className="text-gray-600 flex items-center gap-2"><UserIcon className="w-5 h-5 text-gray-400"/>Nama Pelanggan</p><p className="font-bold text-gray-800">{order.customer_name}</p></div>
-                        <div className="flex items-center justify-between"><p className="text-gray-600 flex items-center gap-2"><BuildingStorefrontIcon className="w-5 h-5 text-gray-400"/>Nomor Meja</p><p className="font-bold text-gray-800">{order.table_number}</p></div>
-                        <div className="flex items-center justify-between"><p className="text-gray-600 flex items-center gap-2"><CurrencyDollarIcon className="w-5 h-5 text-gray-400"/>Metode Bayar</p><p className="font-bold text-gray-800 uppercase">{order.payment_method}</p></div>
-                    </div>
-                </section>
-
-                <section>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Detail Item</h2>
-                    <div className="space-y-2">
-                        {order.items.map((item) => (
-                            <div key={item.id} className="p-4 bg-white flex items-center gap-4 border-b last:border-b-0 border-gray-100">
-                                <p className="font-bold text-orange-600">{item.quantity}x</p>
-                                <div className="flex-grow">
-                                    <p className="font-semibold text-gray-800">{item.product_name}</p>
-                                    {item.addons.length > 0 && (
-                                        <div className="text-xs text-gray-500">
-                                            {item.addons.map(a => a.addon_value_name).join(', ')}
+                    )}
+                    
+                    <div className="p-8 border-t border-slate-200">
+                        <h2 className="text-lg font-bold text-slate-800 mb-4">Detail Item</h2>
+                        <div className="space-y-4">
+                            {order.items.map((item) => (
+                                <div key={item.id} className="pb-4 border-b border-slate-100 last:border-none">
+                                    <div className="flex justify-between font-semibold text-slate-800">
+                                        <span>{item.product_name} x {item.quantity}</span>
+                                        <span>Rp{parseFloat(item.subtotal).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    {item.addons && item.addons.length > 0 && (
+                                        <div className="text-xs text-slate-500 mt-1 pl-2">
+                                            {item.addons.map((addon, idx) => (
+                                                <p key={idx}>- {addon.addon_value_name}</p>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
-                                <p className="font-semibold text-gray-800">Rp{parseFloat(item.subtotal).toLocaleString('id-ID')}</p>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                         <div className="mt-6 flex justify-between items-center text-xl font-bold text-slate-900">
+                            <span>Total</span>
+                            <span className="text-indigo-600">Rp{parseFloat(order.total_amount).toLocaleString('id-ID')}</span>
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center mt-4 p-4 bg-orange-50 rounded-lg">
-                        <p className="text-xl font-bold text-orange-800">Total Keseluruhan</p>
-                        <p className="text-xl font-bold text-orange-800">Rp{parseFloat(order.total_amount).toLocaleString('id-ID')}</p>
-                    </div>
-                </section>
+                </div>
 
-                <footer className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4">
                     {order.payment_status === 'paid' && (
-                        <button onClick={generateReceiptPdf} className="w-full sm:w-auto px-6 py-3 bg-orange-600 text-white font-bold rounded-lg shadow-md hover:bg-orange-700 transition-all flex items-center justify-center gap-2">
-                            <DocumentArrowDownIcon className="w-5 h-5" />Unduh Struk
+                        <button onClick={generateReceiptPdf} className="w-full px-6 py-3 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition flex items-center justify-center gap-2">
+                            <DocumentArrowDownIcon className="w-5 h-5" /> Unduh Struk
                         </button>
                     )}
-                    <button onClick={() => navigate(`/meja/${order.table_uuid}`)} className="w-full sm:w-auto px-6 py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition-all flex items-center justify-center gap-2">
-                        <ArrowPathIcon className="w-5 h-5" />Pesan Lagi
+                    <button onClick={() => navigate(`/meja/${order.table_uuid}`)} className="w-full px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition flex items-center justify-center gap-2">
+                        <ArrowPathIcon className="w-5 h-5" /> Pesan Lagi
                     </button>
-                </footer>
-            </div>
+                </div>
+            </main>
         </div>
     );
 }
