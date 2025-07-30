@@ -1,33 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
 import './index.css';
 
-// LOGIN
-import LoginPage from './pages/LoginPage'; 
+import LoginPage from './pages/LoginPage';
 import CashierLoginPage from './pages/CashierLoginPage'; 
 import KitchenLoginPage from './pages/KitchenLoginPage'; 
 
-// UTAMA
 import AdminDashboard from './pages/AdminDashboard';
 import ProductManagement from './pages/ProductManagement';
 import AddonManagement from './pages/AddonManagement';
 import TableManagement from './pages/TableManagement';
-import OrderPage from './pages/OrderPage'; 
-import OrderStatusPage from './pages/OrderStatusPage'; 
-import CashierPanel from './pages/CashierPanel'; 
-import KitchenPanel from './pages/KitchenPanel'; 
-import SalesReports from './pages/SalesReports'; 
+import OrderPage from './pages/OrderPage';
+import OrderStatusPage from './pages/OrderStatusPage';
+import CashierPanel from './pages/CashierPanel';
+import KitchenPanel from './pages/KitchenPanel';
+import SalesReports from './pages/SalesReports';
+import StockManagement from './pages/StockManagement'; // Import halaman baru
 
-// SHARED
-import PrivateRouteByRole from './components/PrivateRoute'; 
-import Sidebar from './components/Sidebar'; 
-import { Bars3Icon } from '@heroicons/react/24/solid'; 
+import PrivateRouteByRole from './components/PrivateRoute';
+import Sidebar from './components/Sidebar';
+import { Bars3Icon } from '@heroicons/react/24/solid';
 
 const AdminLayout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation(); 
+  const location = useLocation();
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -38,8 +35,8 @@ const AdminLayout = ({ children }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token'); 
-    navigate('/admin/login'); 
+    localStorage.removeItem('token');
+    navigate('/admin/login');
   };
 
   return (
@@ -55,7 +52,7 @@ const AdminLayout = ({ children }) => {
           <div className="w-7 h-7"></div>
         </header>
 
-        <main className="flex-1 overflow-y-auto lg:ml-70"> 
+        <main className="flex-1 overflow-y-auto lg:ml-74">
           {children}
         </main>
       </div>
@@ -66,10 +63,7 @@ const AdminLayout = ({ children }) => {
 
 function App() {
   useEffect(() => {
-    const socket = io(import.meta.env.VITE_SERVER_URL);
-    socket.on('connect', () => { console.log('Connected to Socket.IO server!'); });
-    socket.on('disconnect', () => { console.log('Disconnected from Socket.IO server.'); });
-    return () => socket.close(); 
+    // Socket.IO dihapus dari frontend App.jsx
   }, []);
 
   return (
@@ -104,6 +98,7 @@ const AdminRoutes = () => (
     <Route path="products" element={<ProductManagement />} /> 
     <Route path="addons" element={<AddonManagement />} /> 
     <Route path="tables" element={<TableManagement />} /> 
+    <Route path="stock" element={<StockManagement />} /> {/* Rute baru */}
     <Route path="reports" element={<SalesReports />} /> 
   </Routes>
 );
